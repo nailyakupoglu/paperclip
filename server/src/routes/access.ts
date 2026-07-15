@@ -33,8 +33,13 @@ import {
   conflict,
   notFound,
   unauthorized,
-  badRequest
+  badRequest,
+  tooManyRequests
 } from "../errors.js";
+import {
+  createInviteRateLimiter,
+  type InviteRateLimiter,
+} from "../services/invite-rate-limit.js";
 import { logger } from "../middleware/logger.js";
 import { validate } from "../middleware/validate.js";
 import {
@@ -55,17 +60,17 @@ function hashToken(token: string) {
 }
 
 const INVITE_TOKEN_PREFIX = "pcp_invite_";
-const INVITE_TOKEN_ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789";
-const INVITE_TOKEN_SUFFIX_LENGTH = 8;
+// 32 random bytes = 256 bits of entropy, base64url-encoded (43 chars). The
+// invite token is public (anyone with the link can GET/accept the invite), so
+// it must not be brute-forceable. The previous 8-char base36 suffix carried only
+// ~41 bits, which is online-enumerable. The token is stored hashed (sha256) in
+// `invites.tokenHash`; the raw value is only returned once on creation.
+const INVITE_TOKEN_ENTROPY_BYTES = 32;
 const INVITE_TOKEN_MAX_RETRIES = 5;
 const COMPANY_INVITE_TTL_MS = 10 * 60 * 1000;
 
-function createInviteToken() {
-  const bytes = randomBytes(INVITE_TOKEN_SUFFIX_LENGTH);
-  let suffix = "";
-  for (let idx = 0; idx < INVITE_TOKEN_SUFFIX_LENGTH; idx += 1) {
-    suffix += INVITE_TOKEN_ALPHABET[bytes[idx]! % INVITE_TOKEN_ALPHABET.length];
-  }
+export function createInviteToken() {
+  const suffix = randomBytes(INVITE_TOKEN_ENTROPY_BYTES).toString("base64url");
   return `${INVITE_TOKEN_PREFIX}${suffix}`;
 }
 
@@ -1533,11 +1538,43 @@ export function accessRoutes(
     deploymentExposure: DeploymentExposure;
     bindHost: string;
     allowedHostnames: string[];
+    inviteRateLimiter?: InviteRateLimiter;
   }
 ) {
   const router = Router();
   const access = accessService(db);
   const agents = agentService(db);
+
+  // Per-IP rate limit for the public, unauthenticated invite-token endpoints
+  // (`/invites/:token*`). The token is looked up by hash, so without a limit the
+  // token space would be online-enumerable. Applied as a router-level middleware
+  // so every current and future `/invites/:token` sub-route is covered.
+  //
+  // The key is deliberately NOT `requestIp()`: that helper prefers the
+  // client-supplied `X-Forwarded-For` header (fine for log/audit fields,
+  // but trivially spoofable as a rate-limit key — rotating fake XFF values
+  // would mint a fresh budget per request). `req.ip` honors Express's
+  // `trust proxy` setting (configured from TRUST_PROXY in app.ts, default:
+  // trust nothing), so it is the socket's remote address unless the
+  // operator explicitly trusts a proxy — an unforgeable key either way.
+  const inviteRateLimiter = opts.inviteRateLimiter ?? createInviteRateLimiter();
+  router.use("/invites/:token", (req, res, next) => {
+    const result = inviteRateLimiter.consume(
+      req.ip || req.socket?.remoteAddress || "unknown",
+    );
+    res.setHeader("X-RateLimit-Limit", String(result.limit));
+    res.setHeader("X-RateLimit-Remaining", String(result.remaining));
+    if (!result.allowed) {
+      res.setHeader("Retry-After", String(result.retryAfterSeconds));
+      next(
+        tooManyRequests("Too many invite requests", {
+          retryAfterSeconds: result.retryAfterSeconds,
+        }),
+      );
+      return;
+    }
+    next();
+  });
 
   async function assertInstanceAdmin(req: Request) {
     if (req.actor.type !== "board") throw unauthorized();
