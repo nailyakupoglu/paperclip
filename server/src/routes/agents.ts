@@ -1,5 +1,5 @@
 import { Router, type Request } from "express";
-import { generateKeyPairSync, randomUUID } from "node:crypto";
+import { generateKeyPairSync } from "node:crypto";
 import path from "node:path";
 import type { Db } from "@paperclipai/db";
 import { agents as agentsTable, companies, heartbeatRuns } from "@paperclipai/db";
@@ -36,14 +36,15 @@ import { assertBoard, assertCompanyAccess, getActorInfo } from "./authz.js";
 import { findServerAdapter, listAdapterModels } from "../adapters/index.js";
 import { redactEventPayload } from "../redaction.js";
 import { redactCurrentUserValue } from "../log-redaction.js";
-import { runClaudeLogin } from "@paperclipai/adapter-claude-local/server";
-import {
-  DEFAULT_CODEX_LOCAL_BYPASS_APPROVALS_AND_SANDBOX,
-  DEFAULT_CODEX_LOCAL_MODEL,
-} from "@paperclipai/adapter-codex-local";
 import { DEFAULT_CURSOR_LOCAL_MODEL } from "@paperclipai/adapter-cursor-local";
 import { DEFAULT_GEMINI_LOCAL_MODEL } from "@paperclipai/adapter-gemini-local";
 import { ensureOpenCodeModelConfiguredAndAvailable } from "@paperclipai/adapter-opencode-local/server";
+
+// readonly-core: inlined defaults from @paperclipai/adapter-codex-local
+// (package removed from this build; values kept so existing codex_local
+// agent configs stay readable/editable even though execution is disabled).
+const DEFAULT_CODEX_LOCAL_MODEL = "gpt-5.3-codex";
+const DEFAULT_CODEX_LOCAL_BYPASS_APPROVALS_AND_SANDBOX = true;
 
 export function agentRoutes(db: Db) {
   const DEFAULT_INSTRUCTIONS_PATH_KEYS: Record<string, string> = {
@@ -1408,21 +1409,8 @@ export function agentRoutes(db: Db) {
       return;
     }
 
-    const config = asRecord(agent.adapterConfig) ?? {};
-    const { config: runtimeConfig } = await secretsSvc.resolveAdapterConfigForRuntime(agent.companyId, config);
-    const result = await runClaudeLogin({
-      runId: `claude-login-${randomUUID()}`,
-      agent: {
-        id: agent.id,
-        companyId: agent.companyId,
-        name: agent.name,
-        adapterType: agent.adapterType,
-        adapterConfig: agent.adapterConfig,
-      },
-      config: runtimeConfig,
-    });
-
-    res.json(result);
+    // readonly-core: local Claude engine is not part of this build.
+    res.status(501).json({ error: "claude-login is disabled in readonly-core" });
   });
 
   router.get("/companies/:companyId/heartbeat-runs", async (req, res) => {

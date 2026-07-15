@@ -17,8 +17,9 @@ RUN apt-get update \
 
 RUN ln -sf /usr/bin/fdfind /usr/local/bin/fd
 
-RUN corepack enable \
-  && npm install --global --omit=dev @anthropic-ai/claude-code@latest @openai/codex@latest
+# readonly-core: no local agent-engine binaries in the container
+# (@anthropic-ai/claude-code and @openai/codex intentionally NOT installed)
+RUN corepack enable
 
 RUN useradd --create-home --shell /bin/bash reviewer
 

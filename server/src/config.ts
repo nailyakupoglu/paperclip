@@ -249,7 +249,8 @@ export function loadConfig(): Config {
     storageS3Endpoint,
     storageS3Prefix,
     storageS3ForcePathStyle,
-    heartbeatSchedulerEnabled: process.env.HEARTBEAT_SCHEDULER_ENABLED !== "false",
+    // readonly-core: fail CLOSED — scheduler runs only when explicitly enabled via env.
+    heartbeatSchedulerEnabled: process.env.HEARTBEAT_SCHEDULER_ENABLED === "true",
     heartbeatSchedulerIntervalMs: Math.max(10000, Number(process.env.HEARTBEAT_SCHEDULER_INTERVAL_MS) || 30000),
     companyDeletionEnabled,
   };

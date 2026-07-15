@@ -1,20 +1,6 @@
 import type { ServerAdapterModule } from "./types.js";
 import { getAdapterSessionManagement } from "@paperclipai/adapter-utils";
 import {
-  execute as claudeExecute,
-  testEnvironment as claudeTestEnvironment,
-  sessionCodec as claudeSessionCodec,
-  getQuotaWindows as claudeGetQuotaWindows,
-} from "@paperclipai/adapter-claude-local/server";
-import { agentConfigurationDoc as claudeAgentConfigurationDoc, models as claudeModels } from "@paperclipai/adapter-claude-local";
-import {
-  execute as codexExecute,
-  testEnvironment as codexTestEnvironment,
-  sessionCodec as codexSessionCodec,
-  getQuotaWindows as codexGetQuotaWindows,
-} from "@paperclipai/adapter-codex-local/server";
-import { agentConfigurationDoc as codexAgentConfigurationDoc, models as codexModels } from "@paperclipai/adapter-codex-local";
-import {
   execute as cursorExecute,
   testEnvironment as cursorTestEnvironment,
   sessionCodec as cursorSessionCodec,
@@ -43,7 +29,6 @@ import {
   agentConfigurationDoc as openclawGatewayAgentConfigurationDoc,
   models as openclawGatewayModels,
 } from "@paperclipai/adapter-openclaw-gateway";
-import { listCodexModels } from "./codex-models.js";
 import { listCursorModels } from "./cursor-models.js";
 import {
   execute as piExecute,
@@ -66,30 +51,38 @@ import {
 import { processAdapter } from "./process/index.js";
 import { httpAdapter } from "./http/index.js";
 
-const claudeLocalAdapter: ServerAdapterModule = {
-  type: "claude_local",
-  execute: claudeExecute,
-  testEnvironment: claudeTestEnvironment,
-  sessionCodec: claudeSessionCodec,
-  sessionManagement: getAdapterSessionManagement("claude_local") ?? undefined,
-  models: claudeModels,
-  supportsLocalAgentJwt: true,
-  agentConfigurationDoc: claudeAgentConfigurationDoc,
-  getQuotaWindows: claudeGetQuotaWindows,
-};
+// readonly-core: local claude/codex agent engines are removed from this build.
+// Explicit disabled stubs stay registered so these adapter types can never
+// fall back to the process adapter (which would execute arbitrary commands).
+function disabledLocalAdapter(type: string, label: string): ServerAdapterModule {
+  const message = `${label} adapter is disabled in readonly-core`;
+  return {
+    type,
+    execute: async () => {
+      throw new Error(message);
+    },
+    testEnvironment: async () => ({
+      adapterType: type,
+      status: "fail",
+      checks: [
+        {
+          code: "readonly_core_disabled",
+          level: "error",
+          message,
+          hint: "This deployment is a readonly core; local agent engines are not installed.",
+        },
+      ],
+      testedAt: new Date().toISOString(),
+    }),
+    models: [],
+    supportsLocalAgentJwt: false,
+    agentConfigurationDoc: `${message}.`,
+  };
+}
 
-const codexLocalAdapter: ServerAdapterModule = {
-  type: "codex_local",
-  execute: codexExecute,
-  testEnvironment: codexTestEnvironment,
-  sessionCodec: codexSessionCodec,
-  sessionManagement: getAdapterSessionManagement("codex_local") ?? undefined,
-  models: codexModels,
-  listModels: listCodexModels,
-  supportsLocalAgentJwt: true,
-  agentConfigurationDoc: codexAgentConfigurationDoc,
-  getQuotaWindows: codexGetQuotaWindows,
-};
+const claudeLocalAdapter = disabledLocalAdapter("claude_local", "Claude Code (local)");
+
+const codexLocalAdapter = disabledLocalAdapter("codex_local", "Codex (local)");
 
 const cursorLocalAdapter: ServerAdapterModule = {
   type: "cursor",

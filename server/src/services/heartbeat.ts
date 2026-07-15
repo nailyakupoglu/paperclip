@@ -1596,6 +1596,13 @@ export function heartbeatService(db: Db) {
   }
 
   async function executeRun(runId: string) {
+    // readonly-core guard: every adapter.execute() path goes through here.
+    // Fail CLOSED (same semantics as config.heartbeatSchedulerEnabled) and
+    // return silently — no throw/log so a 30s tick cannot spam the logs.
+    // Binary resolution checks (ensureCommandResolvable) live inside
+    // adapter.execute() and therefore stay behind this guard as well.
+    if (process.env.HEARTBEAT_SCHEDULER_ENABLED !== "true") return;
+
     let run = await getRun(runId);
     if (!run) return;
     if (run.status !== "queued" && run.status !== "running") return;

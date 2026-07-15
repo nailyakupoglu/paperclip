@@ -34,7 +34,9 @@ RUN test -f server/dist/index.js || (echo "ERROR: server build output missing" &
 FROM base AS production
 WORKDIR /app
 COPY --chown=node:node --from=build /app /app
-RUN npm install --global --omit=dev @anthropic-ai/claude-code@latest @openai/codex@latest opencode-ai \
+# readonly-core: no local agent-engine binaries in the container
+# (@anthropic-ai/claude-code and @openai/codex intentionally NOT installed)
+RUN npm install --global --omit=dev opencode-ai \
   && mkdir -p /paperclip \
   && chown node:node /paperclip
 

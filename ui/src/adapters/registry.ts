@@ -1,6 +1,6 @@
 import type { UIAdapterModule } from "./types";
-import { claudeLocalUIAdapter } from "./claude-local";
-import { codexLocalUIAdapter } from "./codex-local";
+// readonly-core: claude-local / codex-local UI adapters removed with their
+// packages; those agent types fall back to the generic process adapter view.
 import { cursorLocalUIAdapter } from "./cursor";
 import { geminiLocalUIAdapter } from "./gemini-local";
 import { openCodeLocalUIAdapter } from "./opencode-local";
@@ -11,8 +11,6 @@ import { httpUIAdapter } from "./http";
 
 const adaptersByType = new Map<string, UIAdapterModule>(
   [
-    claudeLocalUIAdapter,
-    codexLocalUIAdapter,
     geminiLocalUIAdapter,
     openCodeLocalUIAdapter,
     piLocalUIAdapter,

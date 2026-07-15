@@ -1,6 +1,6 @@
 import type { CLIAdapterModule } from "@paperclipai/adapter-utils";
-import { printClaudeStreamEvent } from "@paperclipai/adapter-claude-local/cli";
-import { printCodexStreamEvent } from "@paperclipai/adapter-codex-local/cli";
+// readonly-core: claude-local / codex-local CLI adapters removed with their
+// packages; those agent types fall back to the generic process adapter output.
 import { printCursorStreamEvent } from "@paperclipai/adapter-cursor-local/cli";
 import { printGeminiStreamEvent } from "@paperclipai/adapter-gemini-local/cli";
 import { printOpenCodeStreamEvent } from "@paperclipai/adapter-opencode-local/cli";
@@ -8,16 +8,6 @@ import { printPiStreamEvent } from "@paperclipai/adapter-pi-local/cli";
 import { printOpenClawGatewayStreamEvent } from "@paperclipai/adapter-openclaw-gateway/cli";
 import { processCLIAdapter } from "./process/index.js";
 import { httpCLIAdapter } from "./http/index.js";
-
-const claudeLocalCLIAdapter: CLIAdapterModule = {
-  type: "claude_local",
-  formatStdoutEvent: printClaudeStreamEvent,
-};
-
-const codexLocalCLIAdapter: CLIAdapterModule = {
-  type: "codex_local",
-  formatStdoutEvent: printCodexStreamEvent,
-};
 
 const openCodeLocalCLIAdapter: CLIAdapterModule = {
   type: "opencode_local",
@@ -46,8 +36,6 @@ const openclawGatewayCLIAdapter: CLIAdapterModule = {
 
 const adaptersByType = new Map<string, CLIAdapterModule>(
   [
-    claudeLocalCLIAdapter,
-    codexLocalCLIAdapter,
     openCodeLocalCLIAdapter,
     piLocalCLIAdapter,
     cursorLocalCLIAdapter,
